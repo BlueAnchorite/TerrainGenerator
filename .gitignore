@@ -1,5 +1,6 @@
 # Compiled Object files
 *.slo
+*.sln
 *.lo
 *.o
 *.obj
@@ -26,3 +27,10 @@
 *.exe
 *.out
 *.app
+
+# Log Files
+*.log
+*.pdb
+
+Intermediate/*
+Saved/*
