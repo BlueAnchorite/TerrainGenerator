@@ -167,8 +167,8 @@ void AProceduralTerrain::Tick(float DeltaTime)
 		if (WorkerThreads[i]->IsFinished())
 		{
 			
-			
-		//	WorkerThreads[i]->MeshComponent->MarkRenderStateDirty();
+			// Update the Mesh Component
+			WorkerThreads[i]->MeshComponent->MarkRenderStateDirty();
 			WorkerThreads[i]->MeshComponent->UpdateCollision();
 			
 			
