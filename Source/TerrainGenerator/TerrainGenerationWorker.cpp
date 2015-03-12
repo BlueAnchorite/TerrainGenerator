@@ -101,9 +101,7 @@ uint32 FTerrainGenerationWorker::Run()
 	
 	// Polygonize!
 	MarchingCubes->PolygonizeToTriangles(&MeshComponent->Vertices, &MeshComponent->Indices, &MeshComponent->Positions, Scale, 16, 16, 32, XPos, YPos, ZPos);
-	MeshComponent->MarkRenderStateDirty();
-//	MeshComponent->UpdateCollision();
-	
+
 	bIsFinished = true;
 	return 0;
 }
