@@ -60,11 +60,11 @@ void UMarchingCubes::DestroyGrid()
 	{
 		for (int32 X = 0; X < GridSize.X; ++X)
 		{
-			if (m_pVoxels[X])
+			if (m_pVoxels[X] != NULL)
 			{
 				for (int32 Y = 0; Y < GridSize.Y; ++Y)
 				{
-					if (m_pVoxels[X][Y])
+					if (m_pVoxels[X][Y] != NULL)
 					{
 						delete[] m_pVoxels[X][Y];
 						m_pVoxels[X][Y] = NULL;
@@ -239,9 +239,9 @@ int UMarchingCubes::PolygonizeToTriangles(TArray<FDynamicMeshVertex> *Vertices, 
 					// Calculate Tangents
 					const FVector Edge01 = (Vertex1.Position - Vertex0.Position);
 					const FVector Edge02 = (Vertex2.Position - Vertex0.Position);
-					const FVector TangentX = Edge01.SafeNormal();
-					const FVector TangentZ = (Edge02 ^ Edge01).SafeNormal();
-					const FVector TangentY = (TangentX ^ TangentZ).SafeNormal();
+					const FVector TangentX = Edge01.GetSafeNormal();
+					const FVector TangentZ = (Edge02 ^ Edge01).GetSafeNormal();
+					const FVector TangentY = (TangentX ^ TangentZ).GetSafeNormal();
 
 					Vertex0.TextureCoordinate.X = Vertex0.Position.X / 100.0f;
 					Vertex0.TextureCoordinate.Y = Vertex0.Position.Y / 100.0f;
@@ -299,7 +299,7 @@ int UMarchingCubes::PolygonizeToTriangles(TArray<FDynamicMeshVertex> *Vertices, 
 			}
 		}
 	}
-
+	
 	return NumTriangles;
 }
 
@@ -348,6 +348,6 @@ void UMarchingCubes::SetVoxel(int32 X, int32 Y, int32 Z, float IsoValue)
 
 void UMarchingCubes::BeginDestroy()
 {
-	Super::BeginDestroy();
 	DestroyGrid();
+	Super::BeginDestroy();
 }

@@ -2,69 +2,76 @@
 #include "TerrainGenerationWorker.h"
 #include "Noise.h"
 
-FTerrainGenerationWorker::FTerrainGenerationWorker(UMarchingCubes *pMarchingCubes, UTerrainMeshComponent *pMeshComponent, int32 pXPos, int32 pYPos, int32 pZPos)
+int32 FTerrainGenerationWorker::ThreadCount = 0;
+
+FTerrainGenerationWorker::FTerrainGenerationWorker()
+	: StopTaskCounter(0)
 {
-	MarchingCubes = pMarchingCubes;
-	MeshComponent = pMeshComponent;
-
-	XPos = pXPos * 15;
-	YPos = pYPos * 15;
-	ZPos = pZPos * 31;
-
-	Width = 16;
-	Length = 16;
-	Height = 32;
-	Scale = 1000.0f;
-	VerticalScaling = 0.05f;
-	VerticalSmoothing = 10.0f;
-	bIsFinished = false;
+	MarchingCubes = ConstructObject<UMarchingCubes>(UMarchingCubes::StaticClass());
+	ChunkTasks.Init(0);
+	bIsRunning = false;
 }
 
 bool FTerrainGenerationWorker::Start()
 {
 	if (FPlatformProcess::SupportsMultithreading())
 	{
-		const bool bAutoDeleteSelf = false;
-		const bool bAutoDeleteRunnable = false;
-		bIsFinished = false;
-		Thread = FRunnableThread::Create(this, TEXT("FTerrainGenerationWorker"), bAutoDeleteSelf, bAutoDeleteRunnable, 0, TPri_BelowNormal); //windows default = 8mb for thread, could specify more
+		bIsRunning = false;
+		Thread = FRunnableThread::Create(this, TEXT("FTerrainGenerationWorker"), 0, TPri_AboveNormal); //windows default = 8mb for thread, could specify more
 		return true;
 	}
 	else{
-		bIsFinished = true;
+		bIsRunning = true;
 		return false;
 	}
 }
 
 FTerrainGenerationWorker::~FTerrainGenerationWorker()
 {
-	Thread->WaitForCompletion();
 	delete Thread;
-	delete MarchingCubes;
 	Thread = NULL;
+	delete MarchingCubes;
+	MarchingCubes = NULL;
+}
+
+
+void FTerrainGenerationWorker::Stop()
+{
+	if (Thread)
+	{
+		StopTaskCounter.Increment();
+		
+		Thread->WaitForCompletion();
+
+	}
 }
  
-//Run
-uint32 FTerrainGenerationWorker::Run()
+void FTerrainGenerationWorker::GenerateChunk(FTerrainChunk &Chunk)
 {
-	//Initial wait before starting
-	//FPlatformProcess::Sleep(0.03);
-	MarchingCubes->CreateGrid(16, 16, 32, 1.0f);
-	
-	// Hills And shit
+	if (Chunk.IsChunkGenerated)
+		return;
+
+
+	int32 tXPos = Chunk.XPos * (Width - 1);
+	int32 tYPos = Chunk.YPos * (Length - 1);
+	int32 tZPos = Chunk.ZPos * (Height - 1);
+
+
+	// Create our Grid (The smaller the grid is the faster the less work our thread has to do.)
+	MarchingCubes->CreateGrid(Width, Length, Height, 1.0f);
+
+	// Hills
 	for (int32 x = 0; x < Width; ++x)
 	{
 		for (int32 y = 0; y < Length; ++y)
 		{
 			float zer = 0.0f;
 
-			
-
 			// Simplex Noise Height map
-			float Density = UNoise::MakeSimplexNoise2D(XPos + x, YPos + y, VerticalScaling);
+			float Density = UNoise::MakeSimplexNoise2D(tXPos + x, tYPos + y, VerticalScaling);
 
 			//Density -= FMath::Sin(((float)y) * VerticalScaling);
-			for (int32 z = 16; z <= Height; ++z)
+			for (int32 z = Ground; z <= Height; ++z)
 			{
 				float tmp = Density + ((float)zer / Height);
 				MarchingCubes->SetVoxel(x, y, z, tmp);
@@ -74,35 +81,54 @@ uint32 FTerrainGenerationWorker::Run()
 		}
 	}
 
-	// Ground!
-	for (int32 x = 0; x < Width; ++x)
-	{
-		for (int32 y = 16; y < Length; ++y)
-		{
-			MarchingCubes->SetVoxel(x, y, 0, -1.0f);
-		}
-
-	}
-
-	// Caves
+	// Ground
 	for (int32 x = 0; x < Width; ++x)
 	{
 		for (int32 y = 0; y < Length; ++y)
 		{
-			for (int32 z = 0; z <= 16; ++z)
+			for (int32 z = 0; z < Ground; ++z)
+			{
+				MarchingCubes->SetVoxel(x, y, z, -1.0f);
+			}
+		}
+
+	}
+
+	// Cave things
+	for (int32 x = 0; x < Width; ++x)
+	{
+		for (int32 y = 0; y < Length; ++y)
+		{
+			for (int32 z = 0; z <= Ground; ++z)
 			{
 				//float Density = UNoise::MakeOctaveNoise3D(CaveOctaves, CavePersistence, CaveScale, (float)x*SimplexScale, (float)y*SimplexScale, (float)z*SimplexScale);
-				float Density = UNoise::MakeSimplexNoise2D(XPos + x + z, YPos + y, 0.02f) - UNoise::MakeSimplexNoise2D(XPos + x, YPos + y + z, 0.02f);
-				Density += -0.5f;
+				float Density = UNoise::MakeSimplexNoise2D(tXPos + x + z*CaveModA, tYPos + y*CaveModB, CaveScaleA) - UNoise::MakeSimplexNoise2D(tXPos + x*CaveModC, tYPos + y + z*CaveModD, CaveScaleB);
+				Density += CaveDensityAmplitude;
 				MarchingCubes->SetVoxel(x, y, z, Density);
 			}
 		}
 	}
-	
-	// Polygonize!
-	MarchingCubes->PolygonizeToTriangles(&MeshComponent->Vertices, &MeshComponent->Indices, &MeshComponent->Positions, Scale, 16, 16, 32, XPos, YPos, ZPos);
 
-	bIsFinished = true;
+	// Polygonize!
+	MarchingCubes->PolygonizeToTriangles(&Chunk.Vertices, &Chunk.Indices, &Chunk.Positions, Scale, Width, Length, Height, tXPos, tYPos, tZPos);
+
+	Chunk.IsChunkGenerated = true;
+}
+
+uint32 FTerrainGenerationWorker::Run()
+{
+	++FTerrainGenerationWorker::ThreadCount;
+	while (StopTaskCounter.GetValue() == 0)
+	{
+		if (ChunkTasks.Num() > 0)
+		{
+			GenerateChunk(ChunkTasks[0]);
+		}
+		FPlatformProcess::Sleep(0.05);
+	}
+
+	bIsRunning = false;
+	--FTerrainGenerationWorker::ThreadCount;
 	return 0;
 }
  
@@ -111,7 +137,3 @@ void FTerrainGenerationWorker::EnsureCompletion()
 	Thread->WaitForCompletion();
 }
  
-bool FTerrainGenerationWorker::IsFinished()
-{
-	return bIsFinished;
-}

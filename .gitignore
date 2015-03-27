@@ -31,6 +31,8 @@
 # Log Files
 *.log
 *.pdb
+*.suo
+*.sdf
 
 Intermediate/*
 Saved/*
