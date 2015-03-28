@@ -14,20 +14,43 @@
  */
 
 
+
+
+
 UCLASS()
 class TERRAINGENERATOR_API AProceduralTerrain : public AActor
 {
 	GENERATED_BODY()
 private:
+
+	FTerrainGenerationWorker *TerrainGenerationWorker;
+
 	class USceneComponent* SceneRoot;
 
-	TArray<FTerrainGenerationWorker *> WorkerThreads;
 public:
 
 	/*
 	*	PROPERTIES
 	*/
-	
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	int32 ChunkWidth;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	int32 ChunkLength;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	int32 ChunkHeight;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	int32 Ground;
+
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation|Performance")
+	int32 MaxThreads;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation|Performance")
+	TArray<FIntVector> WaitingThreads;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
 	float SurfaceCrossOverValue;
@@ -36,10 +59,30 @@ public:
 	float VerticalSmoothness;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	float VerticalScaling;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
 	float Scale;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	float CaveScaleA;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	float CaveScaleB;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	float CaveDensityAmplitude;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	float CaveModA;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
+	float CaveModB;
+
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
 	UMaterialInterface *gMaterial;
+
+	
 
 	AProceduralTerrain(const FObjectInitializer& ObjectInitializer);
 
@@ -55,11 +98,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Terrain Generation")
 	bool DestroyChunk(int32 X, int32 Y, int32 Z);
 
-
-	virtual void Tick(float DeltaTime) override;
 	
 
+	
+
+	// Returns true if the terrain was updated
+	UFUNCTION(BlueprintCallable, Category = "Terrain Generation")
+	bool UpdateTerrain();
+	
+	virtual void Tick(float DeltaTime) override;
+
 	TArray<class UTerrainMeshComponent *> TerrainMeshComponents;
+
+	virtual void BeginDestroy() override;
 private:
 	UTerrainMeshComponent *CreateTerrainComponent();
 };

@@ -18,6 +18,14 @@ public:
 	/** Description of collision */
 	UPROPERTY(BlueprintReadOnly, Category = "Collision")
 	class UBodySetup* ModelBodySetup;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Collision")
+	bool IsCollisionEnabled;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Rendering")
+	bool IsRenderable;
+
+
 	// Begin Interface_CollisionDataProvider Interface
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
@@ -35,10 +43,14 @@ public:
 	void UpdateBodySetup();
 
 	UFUNCTION(BlueprintCallable, Category = "Components|TerrainMesh")
-		void UpdateCollision();
+	void UpdateCollision();
 
 	UFUNCTION(BlueprintCallable, Category = "Components|TerrainMesh")
-		void RemoveCollision();
+	void RemoveCollision();
+
+
+	void MarkRenderable(bool state = true);
+
 
 	TArray<FVector> Positions;
 	TArray<FDynamicMeshVertex> Vertices;

@@ -4,9 +4,6 @@
 #include "TerrainMeshComponent.h"
 #include "Runtime/Launch/Resources/Version.h"
 
-#define VBO_SIZE 100002
-#define IBO_SIZE 500001
-
 /** Vertex Buffer */
 class FTerrainMeshVertexBuffer : public FVertexBuffer
 {
@@ -31,6 +28,7 @@ public:
 	}
 
 };
+
 /** Index Buffer */
 class FTerrainMeshIndexBuffer : public FIndexBuffer
 {
@@ -104,12 +102,14 @@ public:
 
 		// Init vertex factory
 		VertexFactory.Init(&VertexBuffer);
+
 		// Enqueue initialization of render resource
 		BeginInitResource(&VertexBuffer);
 		BeginInitResource(&IndexBuffer);
 		BeginInitResource(&VertexFactory);
 
 		
+
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 			UpdateTerrainVertexCommand,
 			FTerrainMeshSceneProxy*, Proxy, (FTerrainMeshSceneProxy*)this,
@@ -233,7 +233,7 @@ public:
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
 	{
 		FPrimitiveViewRelevance Result;
-		Result.bDrawRelevance = true; //IsShown(View);
+		Result.bDrawRelevance = IsShown(View);
 		Result.bShadowRelevance = IsShadowCast(View);
 		Result.bDynamicRelevance = true;
 		MaterialRelevance.SetPrimitiveViewRelevance(Result);
@@ -263,20 +263,22 @@ UTerrainMeshComponent::UTerrainMeshComponent(const FObjectInitializer& PCIP)
 	: Super(PCIP)
 {
 	PrimaryComponentTick.bCanEverTick = false;
+	
 	SetCollisionProfileName(UCollisionProfile::BlockAllDynamic_ProfileName);
 
+	IsCollisionEnabled = false;
+	IsRenderable = false;
 }
 
 FPrimitiveSceneProxy* UTerrainMeshComponent::CreateSceneProxy()
 {
-	FPrimitiveSceneProxy *tmp = 0;
+	FPrimitiveSceneProxy *pTmpProxy = 0;
 	// Only if have enough triangles
-	if (Vertices.Num() > 0)
+	if (Vertices.Num() > 0 && IsRenderable)
 	{
-		UE_LOG(LogClass, Log, TEXT("Creating New Scene Proxy"));
-		tmp = new FTerrainMeshSceneProxy(this);
+		pTmpProxy = new FTerrainMeshSceneProxy(this);
 	}
-	return tmp;
+	return pTmpProxy;
 }
 int32 UTerrainMeshComponent::GetNumMaterials() const
 {
@@ -285,9 +287,9 @@ int32 UTerrainMeshComponent::GetNumMaterials() const
 
 FBoxSphereBounds UTerrainMeshComponent::CalcBounds(const FTransform & LocalToWorld) const
 {
-	if (Positions.Num() > 0)
+	if (Positions.Num() > 0 && IsCollisionEnabled)
 	{
-		UE_LOG(LogClass, Log, TEXT("CalcBounds"));
+		
 		// Minimum Vector: It's set to the first vertex's position initially (NULL == FVector::ZeroVector might be required and a known vertex vector has intrinsically valid values)
 		FVector vecMin = Positions[0];
 		// Maximum Vector: It's set to the first vertex's position initially (NULL == FVector::ZeroVector might be required and a known vertex vector has intrinsically valid values)
@@ -349,9 +351,10 @@ void UTerrainMeshComponent::UpdateBodySetup()
 
 void UTerrainMeshComponent::UpdateCollision()
 {
+	IsCollisionEnabled = true;
 	if (bPhysicsStateCreated)
 	{
-		UE_LOG(LogClass, Log, TEXT("bPhysicsStateCreated"));
+
 		DestroyPhysicsState();
 		UpdateBodySetup();
 		
@@ -364,6 +367,7 @@ void UTerrainMeshComponent::UpdateCollision()
 
 void UTerrainMeshComponent::RemoveCollision()
 {
+	IsCollisionEnabled = false;
 	if (bPhysicsStateCreated)
 	{
 		DestroyPhysicsState();
@@ -374,4 +378,11 @@ UBodySetup* UTerrainMeshComponent::GetBodySetup()
 {
 	UpdateBodySetup();
 	return ModelBodySetup;
+}
+
+void UTerrainMeshComponent::MarkRenderable(bool state)
+{
+	if (state)
+		MarkRenderStateDirty();
+	IsRenderable = state;
 }
