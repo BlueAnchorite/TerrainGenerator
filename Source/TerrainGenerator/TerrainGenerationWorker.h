@@ -2,16 +2,10 @@
 #include "TerrainGenerator.h"
 #include "MarchingCubes.h"
 #include "TerrainMeshComponent.h"
-#include "TerrainGenerationWorker.generated.h"
+#include "GenericPlatformProcess.h"
 
-USTRUCT()
 struct FTerrainChunk
 {
-	GENERATED_USTRUCT_BODY()
-
-
-	bool IsChunkGenerated;
-
 	int32 XPos;
 	int32 YPos;
 	int32 ZPos;
@@ -24,7 +18,6 @@ struct FTerrainChunk
 
 	FTerrainChunk()
 	{
-		IsChunkGenerated = false;
 		MeshComponent = 0;
 
 
@@ -37,10 +30,11 @@ class FTerrainGenerationWorker : public FRunnable
 	FRunnableThread* Thread;
 	bool bIsRunning;
 	FThreadSafeCounter StopTaskCounter;
+	UMarchingCubes *MarchingCubes;
 public:
 
 
-
+	// Generation Parameters
 	int32 Width;
 	int32 Length;
 	int32 Height;
@@ -54,14 +48,15 @@ public:
 	float CaveScaleA;
 	float CaveScaleB;
 	float CaveDensityAmplitude;
+
 	float CaveModA;
 	float CaveModB;
-	float CaveModC;
-	float CaveModD;
 
-	TArray<FTerrainChunk> ChunkTasks;
+	float SurfaceCrossOverValue;
+	
+	TQueue <FTerrainChunk> QueuedChunks;
+	TQueue <FTerrainChunk> FinishedChunks;
 
-	UMarchingCubes *MarchingCubes;
 	static int32 ThreadCount;
 
 	bool IsRunning() const
@@ -74,14 +69,15 @@ public:
 	virtual ~FTerrainGenerationWorker();
  
 	bool Start();
-
+	virtual bool Init() override;
 	virtual uint32 Run();
-	virtual void Stop();
+	virtual void Stop() override;
+	virtual void Exit() override;
+	void Shutdown();
 
-	void GenerateChunk(FTerrainChunk &chunk);
+	bool GenerateChunk(FTerrainChunk &chunk);
 
  
-	/** Makes sure this thread has stopped properly */
 	void EnsureCompletion();
  
  

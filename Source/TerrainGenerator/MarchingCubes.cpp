@@ -346,8 +346,8 @@ void UMarchingCubes::SetVoxel(int32 X, int32 Y, int32 Z, float IsoValue)
 	}
 }
 
-void UMarchingCubes::BeginDestroy()
+UMarchingCubes::~UMarchingCubes()
 {
 	DestroyGrid();
-	Super::BeginDestroy();
+	
 }

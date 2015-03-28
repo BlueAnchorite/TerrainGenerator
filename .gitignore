@@ -33,6 +33,7 @@
 *.pdb
 *.suo
 *.sdf
+*.opensdf
 
 Intermediate/*
 Saved/*

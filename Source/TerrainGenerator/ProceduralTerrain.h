@@ -77,10 +77,7 @@ public:
 	float CaveModA;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
 	float CaveModB;
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
-	float CaveModC;
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
-	float CaveModD;
+
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Terrain Generation")
 	UMaterialInterface *gMaterial;

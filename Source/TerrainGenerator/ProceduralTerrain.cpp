@@ -53,8 +53,6 @@ bool AProceduralTerrain::GenerateFromOrigin(int32 X, int32 Y, int32 Z, int32 Siz
 
 bool AProceduralTerrain::ToggleCollision(int32 X, int32 Y, int32 Z, bool collide)
 {
-
-
 	// For memory saving purposes?!
 	int32 ComponentNum = TerrainMeshComponents.Num();
 	for (int i = 0; i < ComponentNum; ++i)
@@ -105,8 +103,29 @@ bool AProceduralTerrain::CreateChunk(int32 X, int32 Y, int32 Z)
 	if (!TerrainGenerationWorker)
 	{
 		TerrainGenerationWorker = new FTerrainGenerationWorker();
+	
+
+
+		TerrainGenerationWorker->VerticalSmoothing = VerticalSmoothness;
+		TerrainGenerationWorker->VerticalScaling = VerticalScaling;
+		TerrainGenerationWorker->Scale = Scale;
+		TerrainGenerationWorker->Width = ChunkWidth;
+		TerrainGenerationWorker->Length = ChunkLength;
+		TerrainGenerationWorker->Height = ChunkHeight;
+
+		TerrainGenerationWorker->CaveScaleA = CaveScaleA;
+		TerrainGenerationWorker->CaveScaleB = CaveScaleB;
+		TerrainGenerationWorker->CaveDensityAmplitude = CaveDensityAmplitude;
+		TerrainGenerationWorker->CaveModA = CaveModA;
+		TerrainGenerationWorker->CaveModB = CaveModB;
+
+
+		TerrainGenerationWorker->Ground = Ground;
+		TerrainGenerationWorker->SurfaceCrossOverValue = SurfaceCrossOverValue;
+
 		// Let's go! 
 		TerrainGenerationWorker->Start();
+
 	}
 
 	
@@ -120,32 +139,17 @@ bool AProceduralTerrain::CreateChunk(int32 X, int32 Y, int32 Z)
 
 	FTerrainChunk Chunk;
 	Chunk.MeshComponent = MeshComponent;
-	Chunk.IsChunkGenerated = false;
+	
 	Chunk.XPos = X;
 	Chunk.YPos = Y;
 	Chunk.ZPos = Z;
 	
-	TerrainGenerationWorker->VerticalSmoothing = VerticalSmoothness;
-	TerrainGenerationWorker->VerticalScaling = VerticalScaling;
-	TerrainGenerationWorker->Scale = Scale;
-	TerrainGenerationWorker->Width = ChunkWidth;
-	TerrainGenerationWorker->Length = ChunkLength;
-	TerrainGenerationWorker->Height = ChunkHeight;
 
-	TerrainGenerationWorker->CaveScaleA = CaveScaleA;
-	TerrainGenerationWorker->CaveScaleB = CaveScaleB;
-	TerrainGenerationWorker->CaveDensityAmplitude = CaveDensityAmplitude;
-	TerrainGenerationWorker->CaveModA = CaveModA;
-	TerrainGenerationWorker->CaveModB = CaveModB;
-	TerrainGenerationWorker->CaveModC = CaveModC;
-	TerrainGenerationWorker->CaveModD = CaveModD;
+	
+	TerrainGenerationWorker->QueuedChunks.Enqueue(Chunk);
+	
 
-	TerrainGenerationWorker->Ground = Ground;
-	TerrainGenerationWorker->MarchingCubes->SetSurfaceCrossOverValue(SurfaceCrossOverValue);
-
-	TerrainGenerationWorker->ChunkTasks.Add(Chunk);
-
-	UE_LOG(LogClass, Log, TEXT("ChunkTasks: %d"), TerrainGenerationWorker->ChunkTasks.Num());
+	
 
 
 	TerrainMeshComponents.Add(MeshComponent);
@@ -168,7 +172,9 @@ bool AProceduralTerrain::DestroyChunk(int32 X, int32 Y, int32 Z)
 		{
 			TerrainMeshComponents[i]->UnregisterComponent();
 			TerrainMeshComponents[i]->DestroyComponent();
+			
 			TerrainMeshComponents.RemoveAt(i);
+			
 			return true;
 		}
 
@@ -208,24 +214,20 @@ bool AProceduralTerrain::UpdateTerrain()
 {
 	if (TerrainGenerationWorker != 0)
 	{
-		int32 TaskNum = TerrainGenerationWorker->ChunkTasks.Num();
-		for (int32 i = 0; i < TaskNum; ++i)
+		if (TerrainGenerationWorker->FinishedChunks.IsEmpty())
+			return false;
+
+		FTerrainChunk Chunk;
+		if (TerrainGenerationWorker->FinishedChunks.Dequeue(Chunk))
 		{
-			if (TerrainGenerationWorker->ChunkTasks[i].IsChunkGenerated)
-			{
 
-				TerrainGenerationWorker->ChunkTasks[i].MeshComponent->Positions = TerrainGenerationWorker->ChunkTasks[i].Positions;
-				TerrainGenerationWorker->ChunkTasks[i].MeshComponent->Indices = TerrainGenerationWorker->ChunkTasks[i].Indices;
-				TerrainGenerationWorker->ChunkTasks[i].MeshComponent->Vertices = TerrainGenerationWorker->ChunkTasks[i].Vertices;
-				// Update the Mesh Component
-				TerrainGenerationWorker->ChunkTasks[i].MeshComponent->MarkRenderable(true);
-				TerrainGenerationWorker->ChunkTasks[i].MeshComponent->UpdateCollision();
-				TerrainGenerationWorker->ChunkTasks.RemoveAt(i);
+			Chunk.MeshComponent->Positions = Chunk.Positions;
+			Chunk.MeshComponent->Indices = Chunk.Indices;
+			Chunk.MeshComponent->Vertices = Chunk.Vertices;
 
-
-		
-				return true;
-			}
+			Chunk.MeshComponent->MarkRenderable(true);
+			Chunk.MeshComponent->UpdateCollision();
+			return true;
 		}
 	}
 	return false;
@@ -236,7 +238,9 @@ void AProceduralTerrain::BeginDestroy()
 	// Destroy the thread
 	if (TerrainGenerationWorker != 0)
 	{
-		TerrainGenerationWorker->Stop();
+		TerrainGenerationWorker->EnsureCompletion();
+		TerrainGenerationWorker->Shutdown();
+		
 		delete TerrainGenerationWorker;
 	}
 	Super::BeginDestroy();
